@@ -551,8 +551,6 @@ async function refreshAccount(id){
  }
 
 async function send() {
-  const base = baseUrl();
-  const auth = authHeader();
   const model = document.getElementById('model').value.trim();
   const stream = document.getElementById('stream').value === 'true';
   const out = document.getElementById('out');
@@ -563,9 +561,7 @@ async function send() {
   catch(e){ out.textContent = 'messages 不是合法 JSON'; return; }
 
   const body = { model, messages, stream };
-
   const headers = { 'content-type': 'application/json' };
-  if (auth) headers['authorization'] = auth;
 
   if (!stream) {
     const r = await fetch(api('/v1/chat/completions'), {
