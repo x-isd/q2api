@@ -365,48 +365,57 @@ def chat_completions(req: ChatCompletionRequest, account: Dict[str, Any] = Depen
         created = int(time.time())
         stream_id = f"chatcmpl-{uuid.uuid4()}"
         model_used = model or "unknown"
-
-        def event_gen() -> Generator[str, None, None]:
-            tracker = None
-            first_chunk = True
-            try:
-                _, it, tracker = _send_upstream(stream=True)
-                assert it is not None
-                for piece in it:
-                    if not piece:
-                        continue
-                    if first_chunk:
-                        yield _sse_format({
-                            "id": stream_id,
-                            "object": "chat.completion.chunk",
-                            "created": created,
-                            "model": model_used,
-                            "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}],
-                        })
-                        first_chunk = False
+        
+        try:
+            _, it, tracker = _send_upstream(stream=True)
+            assert it is not None
+            first_piece = next(it, None)
+            if not first_piece:
+                _update_stats(account["id"], False)
+                raise HTTPException(status_code=502, detail="No content from upstream")
+            
+            def event_gen() -> Generator[str, None, None]:
+                try:
                     yield _sse_format({
                         "id": stream_id,
                         "object": "chat.completion.chunk",
                         "created": created,
                         "model": model_used,
-                        "choices": [{"index": 0, "delta": {"content": piece}, "finish_reason": None}],
+                        "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}],
                     })
-                yield _sse_format({
-                    "id": stream_id,
-                    "object": "chat.completion.chunk",
-                    "created": created,
-                    "model": model_used,
-                    "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
-                })
-                yield "data: [DONE]\n\n"
-                if tracker:
-                    _update_stats(account["id"], tracker.has_content)
-            except Exception:
-                if tracker:
-                    _update_stats(account["id"], tracker.has_content)
-                raise
-
-        return StreamingResponse(event_gen(), media_type="text/event-stream")
+                    yield _sse_format({
+                        "id": stream_id,
+                        "object": "chat.completion.chunk",
+                        "created": created,
+                        "model": model_used,
+                        "choices": [{"index": 0, "delta": {"content": first_piece}, "finish_reason": None}],
+                    })
+                    for piece in it:
+                        if piece:
+                            yield _sse_format({
+                                "id": stream_id,
+                                "object": "chat.completion.chunk",
+                                "created": created,
+                                "model": model_used,
+                                "choices": [{"index": 0, "delta": {"content": piece}, "finish_reason": None}],
+                            })
+                    yield _sse_format({
+                        "id": stream_id,
+                        "object": "chat.completion.chunk",
+                        "created": created,
+                        "model": model_used,
+                        "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                    })
+                    yield "data: [DONE]\n\n"
+                    _update_stats(account["id"], True)
+                except Exception:
+                    _update_stats(account["id"], tracker.has_content if tracker else False)
+                    raise
+            
+            return StreamingResponse(event_gen(), media_type="text/event-stream")
+        except Exception as e:
+            _update_stats(account["id"], False)
+            raise
 
 # ------------------------------------------------------------------------------
 # Device Authorization (URL Login, 5-minute timeout)
