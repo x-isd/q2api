@@ -11,6 +11,7 @@
 - **智能负载均衡** - 从启用的账号中随机选择，实现简单的负载分配
 - **HTTP 代理支持** - 可配置代理服务器，支持所有 HTTP 请求
 - **API Key 白名单** - 可选的访问控制，支持开发模式
+- **现代化前端** - 美观的 Web 控制台，标签页布局，支持账号管理和 Chat 测试
 - **自动重试机制** - Token 过期时自动刷新并重试请求
 
 ## 🚀 快速开始
@@ -56,6 +57,7 @@ python -m uvicorn app:app --reload --port 8000
 ```
 
 访问：
+- 🏠 Web 控制台：http://localhost:8000/ （需要存在 `frontend/index.html`，否则将返回 404）
 - 💚 健康检查：http://localhost:8000/healthz
 - 📘 API 文档（Swagger）：http://localhost:8000/docs
 
@@ -63,7 +65,16 @@ python -m uvicorn app:app --reload --port 8000
 
 ### 账号管理
 
-#### 账号管理 API
+#### 方式一：Web 控制台（推荐）
+
+访问 http://localhost:8000/ 使用可视化界面管理账号：
+- 查看所有账号及状态
+- 创建/删除/编辑账号
+- 启用/禁用账号
+- 刷新 Token
+- URL 登录（设备授权）
+
+#### 方式二：REST API
 
 **创建账号**
 ```bash
@@ -211,14 +222,17 @@ print(response.choices[0].message.content)
 ├── .env.example                    # 环境变量示例
 ├── .gitignore                      # Git 忽略规则
 ├── data.sqlite3                    # SQLite 数据库（自动创建）
-└── templates/
-    └── streaming_request.json      # 请求模板
+├── templates/
+│   └── streaming_request.json      # 请求模板
+└── frontend/
+    └── index.html                  # Web 控制台入口
 ```
 
 ## 🛠️ 技术栈
 
 - **后端**: FastAPI + Python 3.8+
 - **数据库**: SQLite3
+- **前端**: 纯 HTML/CSS/JavaScript
 - **认证**: AWS OIDC 设备授权流程
 
 ## 🔧 高级配置
@@ -296,6 +310,7 @@ CREATE TABLE accounts (
 - `POST /v1/chat/completions` - Chat Completions API
 
 ### 其他
+- `GET /` - Web 控制台
 - `GET /healthz` - 健康检查
 
 ## 📄 许可证
